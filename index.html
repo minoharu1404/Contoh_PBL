@@ -1,0 +1,190 @@
+
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+.wrap { padding: 1.25rem 0; font-family: var(--font-mono); }
+.header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 1.25rem; }
+.title { font-size: 13px; font-weight: 500; color: var(--color-text-secondary); letter-spacing: 0.08em; text-transform: uppercase; }
+.pill { display: flex; align-items: center; gap: 6px; font-size: 12px; color: var(--color-text-secondary); }
+.dot { width: 8px; height: 8px; border-radius: 50%; background: #888; transition: background 0.3s; }
+.dot.live { background: #639922; animation: pulse 1.5s infinite; }
+.dot.err { background: #E24B4A; }
+@keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.35} }
+
+.status-panel { background: var(--color-background-secondary); border: 0.5px solid var(--color-border-tertiary); border-radius: var(--border-radius-lg); padding: 1rem 1.25rem; margin-bottom: 1.25rem; }
+.status-panel-title { font-size: 11px; color: var(--color-text-tertiary); text-transform: uppercase; letter-spacing: 0.07em; margin-bottom: 14px; }
+.lamp-grid { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px; }
+.lamp-item { display: flex; align-items: center; gap: 8px; padding: 8px 10px; border-radius: var(--border-radius-md); border: 0.5px solid var(--color-border-tertiary); background: var(--color-background-primary); }
+.lamp { width: 12px; height: 12px; border-radius: 50%; background: #444; flex-shrink: 0; transition: background 0.3s, box-shadow 0.3s; }
+.lamp.on-green { background: #639922; box-shadow: 0 0 6px #639922; }
+.lamp.on-blue  { background: #185FA5; box-shadow: 0 0 6px #185FA5; }
+.lamp.on-red   { background: #A32D2D; box-shadow: 0 0 6px #A32D2D; }
+.lamp.off      { background: #444; box-shadow: none; }
+.lamp-info { display: flex; flex-direction: column; gap: 1px; min-width: 0; }
+.lamp-name { font-size: 11px; color: var(--color-text-tertiary); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.lamp-val  { font-size: 12px; font-weight: 500; color: var(--color-text-primary); }
+
+.log-label { font-size: 11px; color: var(--color-text-tertiary); text-transform: uppercase; letter-spacing: 0.07em; margin-bottom: 8px; }
+.log-box { background: var(--color-background-secondary); border: 0.5px solid var(--color-border-tertiary); border-radius: var(--border-radius-lg); padding: 0.75rem 1rem; min-height: 200px; max-height: 360px; overflow-y: auto; }
+.log-empty { font-size: 13px; color: var(--color-text-tertiary); text-align: center; padding: 50px 0; }
+.log-entry { padding: 7px 0; border-bottom: 0.5px solid var(--color-border-tertiary); }
+.log-entry:last-child { border-bottom: none; }
+.log-entry.new { animation: slideIn 0.2s ease; }
+@keyframes slideIn { from { opacity:0; transform:translateY(-5px); } to { opacity:1; transform:translateY(0); } }
+.log-meta { display: flex; align-items: center; gap: 8px; margin-bottom: 4px; }
+.log-time { font-size: 11px; color: var(--color-text-tertiary); }
+.log-arrow { font-size: 11px; color: var(--color-text-tertiary); }
+.badge-sumber { font-size: 11px; padding: 1px 8px; border-radius: 99px; font-weight: 500; }
+.badge-web    { background: #E6F1FB; color: #185FA5; }
+.badge-laptop { background: #FAEEDA; color: #854F0B; }
+.log-fields { display: flex; flex-wrap: wrap; gap: 5px; }
+.chip { font-size: 11px; padding: 2px 8px; border-radius: 99px; border: 0.5px solid var(--color-border-tertiary); background: var(--color-background-primary); color: var(--color-text-secondary); }
+.chip-on  { background: #EAF3DE; color: #3B6D11; border-color: #97C459; }
+.chip-off { background: #FCEBEB; color: #A32D2D; border-color: #F09595; }
+.chip-cw  { background: #E6F1FB; color: #185FA5; border-color: #85B7EB; }
+.chip-ccw { background: #EEEDFE; color: #534AB7; border-color: #AFA9EC; }
+.chip-error { background: #FCEBEB; color: #A32D2D; border-color: #F09595; }
+</style>
+
+<div class="wrap">
+  <h2 class="sr-only">Monitor status dan log realtime Tes-Koneksi</h2>
+  <div class="header">
+    <span class="title">Tes-Koneksi · Monitor</span>
+    <span class="pill"><span class="dot" id="dot"></span><span id="conn-label">menghubungkan...</span></span>
+  </div>
+
+  <div class="status-panel">
+    <div class="status-panel-title">status terkini</div>
+    <div class="lamp-grid">
+      <div class="lamp-item">
+        <div class="lamp off" id="lamp-motor_atas"></div>
+        <div class="lamp-info"><span class="lamp-name">motor_atas</span><span class="lamp-val" id="val-motor_atas">—</span></div>
+      </div>
+      <div class="lamp-item">
+        <div class="lamp off" id="lamp-stoper_kiri"></div>
+        <div class="lamp-info"><span class="lamp-name">stoper_kiri</span><span class="lamp-val" id="val-stoper_kiri">—</span></div>
+      </div>
+      <div class="lamp-item">
+        <div class="lamp off" id="lamp-stoper_kanan"></div>
+        <div class="lamp-info"><span class="lamp-name">stoper_kanan</span><span class="lamp-val" id="val-stoper_kanan">—</span></div>
+      </div>
+      <div class="lamp-item">
+        <div class="lamp off" id="lamp-vakum"></div>
+        <div class="lamp-info"><span class="lamp-name">vakum</span><span class="lamp-val" id="val-vakum">—</span></div>
+      </div>
+      <div class="lamp-item">
+        <div class="lamp off" id="lamp-arm"></div>
+        <div class="lamp-info"><span class="lamp-name">arm</span><span class="lamp-val" id="val-arm">—</span></div>
+      </div>
+      <div class="lamp-item">
+        <div class="lamp off" id="lamp-status_mesin"></div>
+        <div class="lamp-info"><span class="lamp-name">status_mesin</span><span class="lamp-val" id="val-status_mesin">—</span></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="log-label">log aktivitas</div>
+  <div class="log-box" id="log-box">
+    <p class="log-empty">Memuat log...</p>
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+<script>
+const SUPA_URL = "https://tbintbjorpfmvsyduxip.supabase.co";
+const SUPA_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRiaW50YmpvcnBmbXZzeWR1eGlwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzcwMTE0MTEsImV4cCI6MjA5MjU4NzQxMX0.n2FV7k_vnHDy9wlW0nCVcJAnCQlKG5DNIaXrpxELDd4";
+const TABEL = "Tes-Koneksi";
+const sb = supabase.createClient(SUPA_URL, SUPA_KEY);
+
+const ON_OFF_FIELDS = ["motor_atas","stoper_kiri","stoper_kanan","vakum"];
+
+function updateLamp(field, val) {
+  const lamp = document.getElementById("lamp-" + field);
+  const valEl = document.getElementById("val-" + field);
+  if (!lamp || !valEl || !val) return;
+  valEl.textContent = val;
+  const v = val.toUpperCase();
+  lamp.className = "lamp";
+  if (ON_OFF_FIELDS.includes(field)) {
+    lamp.classList.add(v === "ON" ? "on-green" : "off");
+  } else if (field === "arm") {
+    lamp.classList.add(v === "CW" || v === "CCW" ? "on-blue" : "off");
+  } else if (field === "status_mesin") {
+    if (v === "ON") lamp.classList.add("on-green");
+    else if (v === "ERROR") lamp.classList.add("on-red");
+    else lamp.classList.add("off");
+  }
+}
+
+function updateSemuaLamp(row) {
+  ["motor_atas","stoper_kiri","stoper_kanan","vakum","arm","status_mesin"].forEach(f => {
+    if (row[f]) updateLamp(f, row[f]);
+  });
+}
+
+function chipClass(field, val) {
+  if (!val) return "chip";
+  const v = val.toUpperCase();
+  if (ON_OFF_FIELDS.includes(field)) return "chip " + (v === "ON" ? "chip-on" : "chip-off");
+  if (field === "arm") return "chip " + (v === "CW" ? "chip-cw" : "chip-ccw");
+  if (field === "status_mesin") {
+    if (v === "ON") return "chip chip-on";
+    if (v === "ERROR") return "chip chip-error";
+    return "chip chip-off";
+  }
+  return "chip";
+}
+
+function buatEntry(row, isNew) {
+  const d = new Date(row.timestamp);
+  const jam = d.toLocaleTimeString("id-ID", { hour:"2-digit", minute:"2-digit", second:"2-digit" });
+  const tgl = d.toLocaleDateString("id-ID", { day:"2-digit", month:"short" });
+  const src = (row.sumber || "").toLowerCase();
+  const badgeClass = src === "laptop" ? "badge-sumber badge-laptop" : "badge-sumber badge-web";
+  const fields = ["motor_atas","stoper_kiri","stoper_kanan","vakum","arm","status_mesin"];
+  const chips = fields.map(f => row[f] ? `<span class="${chipClass(f,row[f])}">${f}: ${row[f]}</span>` : "").filter(Boolean).join("");
+  const el = document.createElement("div");
+  el.className = "log-entry" + (isNew ? " new" : "");
+  el.innerHTML = `
+    <div class="log-meta">
+      <span class="log-time">${tgl} ${jam}</span>
+      <span class="log-arrow">>>></span>
+      <span class="${badgeClass}">${row.sumber || "?"}</span>
+    </div>
+    <div class="log-fields">${chips || '<span style="font-size:11px;color:var(--color-text-tertiary)">— tidak ada data —</span>'}</div>
+  `;
+  return el;
+}
+
+async function muatLog() {
+  const { data, error } = await sb.from(TABEL).select("*").order("timestamp", { ascending: false }).limit(50);
+  const box = document.getElementById("log-box");
+  if (error) { document.getElementById("dot").className = "dot err"; document.getElementById("conn-label").textContent = "error"; return; }
+  box.innerHTML = "";
+  if (!data || data.length === 0) { box.innerHTML = '<p class="log-empty">Belum ada data.</p>'; return; }
+  data.forEach(r => box.appendChild(buatEntry(r, false)));
+  if (data[0]) updateSemuaLamp(data[0]);
+}
+
+function tambahBaru(row) {
+  const box = document.getElementById("log-box");
+  const empty = box.querySelector('.log-empty');
+  if (empty) empty.remove();
+  box.insertBefore(buatEntry(row, true), box.firstChild);
+  updateSemuaLamp(row);
+}
+
+async function init() {
+  await muatLog();
+  sb.channel("monitor-v4")
+    .on("postgres_changes", { event: "INSERT", schema: "public", table: TABEL }, p => tambahBaru(p.new))
+    .subscribe(s => {
+      const dot = document.getElementById("dot");
+      const lbl = document.getElementById("conn-label");
+      if (s === "SUBSCRIBED") { dot.className = "dot live"; lbl.textContent = "live"; }
+      else if (s === "CLOSED" || s === "CHANNEL_ERROR") { dot.className = "dot err"; lbl.textContent = "terputus"; }
+      else { dot.className = "dot"; lbl.textContent = "menghubungkan..."; }
+    });
+}
+
+init();
+</script>
