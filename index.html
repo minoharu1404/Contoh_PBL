@@ -253,10 +253,10 @@
     } else if (!mesinJalan) {
       // MV ON, mesin belum jalan → Start bisa, Stop disable
       btnStart.disabled = false;
-      btnStop.disabled  = true;
+      btnStop.disabled  = false;
     } else {
       // Mesin jalan → Start disable, Stop bisa
-      btnStart.disabled = true;
+      btnStart.disabled = false;
       btnStop.disabled  = false;
     }
   }
@@ -368,7 +368,7 @@
   // ─── LOAD DATA AWAL ───
   async function loadAwal() {
     try {
-      const res  = await fetch(`${SUPABASE_URL}/rest/v1/${TABLE}?order=timestamp.desc&limit=1`, { headers: HEADERS });
+      const res = await fetch(`${SUPABASE_URL}/rest/v1/event_log?order=created_at.asc&limit=50`, { headers: HEADERS });
       const rows = await res.json();
       setConn(true);
       if (!rows || rows.length === 0) return;
