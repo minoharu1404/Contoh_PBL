@@ -27,24 +27,6 @@
     .dot.ok  { background: #28a745; }
     .dot.err { background: #dc3545; }
 
-    /* STREAMING VIDEO */
-    .video-wrapper {
-      background: #1e1e1e;
-      border-radius: 6px;
-      padding: 10px;
-      margin-bottom: 24px;
-      display: flex;
-      justify-content: center;
-      align-items: center;
-      min-height: 300px;
-      border: 1px solid #ddd;
-    }
-    .video-wrapper img {
-      max-width: 100%;
-      height: auto;
-      border-radius: 4px;
-    }
-
     /* TOMBOL */
     .btn-row { display: flex; gap: 12px; margin-bottom: 20px; align-items: center; }
     .btn-start, .btn-stop {
@@ -149,11 +131,7 @@
   <span id="conn-label">Menghubungkan...</span>
 </div>
 
-<h3>Kamera Pengawas</h3>
-<div class="video-wrapper">
-  <img id="mv-stream" src="https://jinx-radish-baffle.ngrok-free.dev/video_feed?ngrok-skip-browser-warning=1" alt="Kamera Offline / Menunggu Koneksi...">
-</div>
-
+<!-- TOMBOL START / STOP -->
 <div class="btn-row">
   <button class="btn-start" id="btn-start" onclick="kirimStart()" disabled>START</button>
   <button class="btn-stop"  id="btn-stop"  onclick="kirimStop()" disabled>STOP</button>
@@ -163,6 +141,7 @@
   </div>
 </div>
 
+<!-- STATUS KOMPONEN -->
 <h3>Status Komponen</h3>
 <div class="komp-grid">
   <div class="komp-item">
@@ -191,11 +170,13 @@
   </div>
 </div>
 
+<!-- ALARM -->
 <h3>Alarm</h3>
 <div class="alarm-box" id="alarm-box">
   <span class="alarm-empty" id="alarm-content">Tidak ada alarm</span>
 </div>
 
+<!-- LOG EVENT -->
 <div class="log-header">
   <h3 style="margin:0">Log Aktivitas</h3>
   <button class="btn-clear" onclick="clearLog()">✕ Bersihkan</button>
@@ -207,11 +188,10 @@
 </div>
 
 <script>
-  // KODE JAVASCRIPT SUPABASE TIDAK BERUBAH (SAMA SEPERTI SEBELUMNYA)
   const SUPABASE_URL = "https://tbintbjorpfmvsyduxip.supabase.co";
   const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRiaW50YmpvcnBmbXZzeWR1eGlwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzcwMTE0MTEsImV4cCI6MjA5MjU4NzQxMX0.n2FV7k_vnHDy9wlW0nCVcJAnCQlKG5DNIaXrpxELDd4";
-  const TABLE = "Supply_Process"; 
-  const TABLE_Kontrol = "kontrol"; 
+  const TABLE = "Supply_Process"; // <── ganti dengan nama tabel yang benar
+  const TABLE_Kontrol = "kontrol"; // <── ganti dengan nama tabel kontrol jika berbeda
 
   const { createClient } = supabase;
   const sb = createClient(SUPABASE_URL, SUPABASE_KEY);
@@ -222,14 +202,17 @@
     "Authorization": "Bearer " + SUPABASE_KEY
   };
 
+  // State
   let mvOn      = false;
   let mesinJalan = false;
 
+  // ─── KONEKSI INDIKATOR ───
   function setConn(ok) {
     document.getElementById('dot').className = 'dot ' + (ok ? 'ok' : 'err');
     document.getElementById('conn-label').textContent = ok ? 'Terhubung ke Supabase' : 'Koneksi terputus';
   }
 
+  // ─── BADGE ───
   function getBadgeClass(val) {
     if (!val || val === '—') return 'dash';
     const v = val.toUpperCase();
@@ -258,17 +241,21 @@
     }
   }
 
+  // ─── LOGIC TOMBOL ───
   function updateTombol() {
     const btnStart = document.getElementById('btn-start');
     const btnStop  = document.getElementById('btn-stop');
 
     if (!mvOn) {
+      // MV OFF → kedua tombol disable
       btnStart.disabled = true;
       btnStop.disabled  = true;
     } else if (!mesinJalan) {
+      // MV ON, mesin belum jalan → Start bisa, Stop disable
       btnStart.disabled = false;
       btnStop.disabled  = true;
     } else {
+      // Mesin jalan → Start disable, Stop bisa
       btnStart.disabled = true;
       btnStop.disabled  = false;
     }
@@ -279,6 +266,7 @@
     document.getElementById('mv-label').textContent = 'MV: ' + (on ? 'ON' : 'OFF');
   }
 
+  // ─── TOMBOL START ───
   window.kirimStart = async function() {
     try {
       const cek  = await fetch(`${SUPABASE_URL}/rest/v1/${TABLE_Kontrol}?select=id&limit=1`, { headers: HEADERS });
@@ -296,6 +284,7 @@
           body: JSON.stringify({ PB_Start: "ON", PB_Stop: "OFF" })
         });
       }
+      // Kirim event log
       await fetch(`${SUPABASE_URL}/rest/v1/event_log`, {
         method: 'POST',
         headers: { ...HEADERS, "Prefer": "return=minimal" },
@@ -309,6 +298,7 @@
     }
   };
 
+  // ─── TOMBOL STOP ───
   window.kirimStop = async function() {
     try {
       const cek  = await fetch(`${SUPABASE_URL}/rest/v1/${TABLE_Kontrol}?select=id&limit=1`, { headers: HEADERS });
@@ -320,6 +310,7 @@
           body: JSON.stringify({ PB_Start: "OFF", PB_Stop: "ON" })
         });
       }
+      // Kirim event log
       await fetch(`${SUPABASE_URL}/rest/v1/event_log`, {
         method: 'POST',
         headers: { ...HEADERS, "Prefer": "return=minimal" },
@@ -333,6 +324,7 @@
     }
   };
 
+  // ─── FORMAT WAKTU ───
   function formatTime(ts) {
     if (!ts) return '—';
     const d = new Date(ts);
@@ -340,18 +332,23 @@
     return `${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
   }
 
+  // ─── LOG EVENT ───
   function addLogLine(row) {
     const inner = document.getElementById('log-inner');
+
     const empty = inner.querySelector('.log-empty');
     if (empty) empty.remove();
+
     const waktu = formatTime(row.waktu || row.created_at);
     const eventTeks = row.event;
     if (!eventTeks) return;
+
     const lineClass = getLineClass(eventTeks);
     const div = document.createElement('div');
     div.className = 'log-line' + (lineClass ? ' ' + lineClass : '');
     div.innerHTML = `<span class="log-time">(${waktu})</span><span class="log-sep">>></span><span class="log-event">${eventTeks}</span>`;
     inner.appendChild(div);
+
     const box = document.getElementById('log-box');
     box.scrollTop = box.scrollHeight;
   }
@@ -368,6 +365,7 @@
     document.getElementById('log-inner').innerHTML = '<span class="log-empty">Log dibersihkan.</span>';
   };
 
+  // ─── LOAD DATA AWAL ───
   async function loadAwal() {
     try {
       const res  = await fetch(`${SUPABASE_URL}/rest/v1/${TABLE}?order=timestamp.desc&limit=1`, { headers: HEADERS });
@@ -375,6 +373,7 @@
       setConn(true);
       if (!rows || rows.length === 0) return;
       const r = rows[0];
+
       setBadge('badge-motor_atas',   r.motor_atas);
       setBadge('badge-stoper_kiri',  r.stoper_kiri);
       setBadge('badge-stoper_kanan', r.stoper_kanan);
@@ -383,6 +382,7 @@
       setBadge('badge-status_mesin', r.status_mesin);
       setAlarmBadge(r.alaram, r.timestamp);
 
+      // Cek MV dari tabel kontrol
       const resKontrol = await fetch(`${SUPABASE_URL}/rest/v1/${TABLE_Kontrol}?select=MV,PB_Start,PB_Stop&limit=1`, { headers: HEADERS });
       const rowsKontrol = await resKontrol.json();
       if (rowsKontrol.length > 0) {
@@ -406,8 +406,12 @@
     } catch(e) { console.error(e); }
   }
 
+  // ─── SUPABASE REALTIME Supply_Process ───
   sb.channel('supply-realtime')
-    .on('postgres_changes', { event: 'INSERT', schema: 'public', table: TABLE }, (payload) => {
+    .on(
+      'postgres_changes',
+      { event: 'INSERT', schema: 'public', table: TABLE },
+      (payload) => {
         const r = payload.new;
         setConn(true);
         setBadge('badge-motor_atas',   r.motor_atas);
@@ -417,14 +421,19 @@
         setBadge('badge-arm',          r.arm);
         setBadge('badge-status_mesin', r.status_mesin);
         setAlarmBadge(r.alaram, r.timestamp);
-      })
+      }
+    )
     .subscribe((status) => {
       if (status === 'SUBSCRIBED') setConn(true);
       if (status === 'CLOSED' || status === 'CHANNEL_ERROR') setConn(false);
     });
 
+  // ─── REALTIME TABEL KONTROL (MV, PB_Start, PB_Stop) ───
   sb.channel('kontrol-realtime')
-    .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: TABLE_Kontrol }, (payload) => {
+    .on(
+      'postgres_changes',
+      { event: 'UPDATE', schema: 'public', table: TABLE_Kontrol },
+      (payload) => {
         const k = payload.new;
         const mvBaru = (k.MV === 'ON');
         if (mvBaru !== mvOn) {
@@ -434,15 +443,22 @@
         }
         if (k.PB_Stop === 'ON') mesinJalan = false;
         updateTombol();
-      })
+      }
+    )
     .subscribe();
 
+  // ─── REALTIME TABEL EVENT_LOG ───
   sb.channel('eventlog-realtime')
-    .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'event_log' }, (payload) => {
+    .on(
+      'postgres_changes',
+      { event: 'INSERT', schema: 'public', table: 'event_log' },
+      (payload) => {
         addLogLine(payload.new);
-      })
+      }
+    )
     .subscribe();
 
+  // ─── INIT ───
   loadAwal();
   loadLogAwal();
 </script>
