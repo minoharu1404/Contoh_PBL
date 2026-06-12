@@ -248,8 +248,8 @@
 
     if (!mvOn) {
       // MV OFF → kedua tombol disable
-      btnStart.disabled = true;
-      btnStop.disabled  = true;
+      btnStart.disabled = false;
+      btnStop.disabled  = false;
     } else if (!mesinJalan) {
       // MV ON, mesin belum jalan → Start bisa, Stop disable
       btnStart.disabled = false;
