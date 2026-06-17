@@ -353,6 +353,30 @@
     }
   };
 
+  // ─── FORCE STOP (ERROR / MV OFF) ───
+  async function forceStopKontrol(alasan) {
+    try {
+      const cek  = await fetch(`${SUPABASE_URL}/rest/v1/${TABLE_Kontrol}?select=id&limit=1`, { headers: HEADERS });
+      const rows = await cek.json();
+      if (rows.length > 0) {
+        await fetch(`${SUPABASE_URL}/rest/v1/${TABLE_Kontrol}?id=eq.${rows[0].id}`, {
+          method: 'PATCH',
+          headers: { ...HEADERS, "Prefer": "return=minimal" },
+          body: JSON.stringify({ PB_Start: "OFF", PB_Stop: "OFF" })
+        });
+      }
+      await fetch(`${SUPABASE_URL}/rest/v1/event_log`, {
+        method: 'POST',
+        headers: { ...HEADERS, "Prefer": "return=minimal" },
+        body: JSON.stringify({ event: `PB Start/Stop di-reset otomatis — ${alasan}` })
+      });
+      mesinJalan = false;
+      updateTombol();
+    } catch(e) {
+      console.error('Gagal force stop:', e);
+    }
+  }
+
   // ─── FORMAT WAKTU ───
   function formatTime(ts) {
     if (!ts) return '—';
@@ -450,6 +474,11 @@
         setBadge('badge-arm',          r.arm);
         setBadge('badge-status_mesin', r.status_mesin);
         setAlarmBadge(r.alaram, r.timestamp);
+
+        // Auto-OFF PB_Start/PB_Stop kalau status mesin ERROR
+        if (r.status_mesin === 'ERROR') {
+          forceStopKontrol('Status Mesin: ERROR');
+        }
       }
     )
     .subscribe((status) => {
@@ -468,7 +497,10 @@
         if (mvBaru !== mvOn) {
           mvOn = mvBaru;
           updateMvIndicator(mvOn);
-          if (!mvOn) mesinJalan = false;
+          if (!mvOn) {
+            mesinJalan = false;
+            forceStopKontrol('MV: Operator tidak terdeteksi');
+          }
         }
         if (k.PB_Stop === 'ON') mesinJalan = false;
         updateTombol();
