@@ -2,7 +2,7 @@
 <html lang="id">
 <head>
   <meta charset="UTF-8"/>
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>Dashboard Mesin</title>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
   <style>
@@ -86,31 +86,6 @@
     .alarm-time { color: #888; margin-right: 4px; }
     .alarm-sep  { color: #555; margin: 0 4px; }
 
-    /* VIDEO STREAM MV */
-    .stream-box {
-      background: #000;
-      border-radius: 8px;
-      overflow: hidden;
-      margin-bottom: 20px;
-      max-width: 480px;
-      aspect-ratio: 4 / 3;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-    }
-    .stream-box img {
-      width: 100%;
-      height: 100%;
-      object-fit: cover;
-      display: block;
-    }
-    .stream-fallback {
-      color: #666;
-      font-size: 13px;
-      text-align: center;
-      padding: 20px;
-    }
-
     /* RESPONSIVE — HP / layar kecil */
     @media (max-width: 600px) {
       body { padding: 12px; }
@@ -128,8 +103,6 @@
         margin-top: 6px;
         justify-content: center;
       }
-
-      .stream-box { max-width: 100%; }
 
       .komp-grid { gap: 8px; }
       .komp-item {
@@ -185,18 +158,6 @@
 <div class="koneksi">
   <span class="dot" id="dot"></span>
   <span id="conn-label">Menghubungkan...</span>
-</div>
-
-<!-- VIDEO STREAM MV -->
-<div class="stream-box" id="stream-box">
-  <img id="mv-stream"
-       src="https://preformed-canister-reboot.ngrok-free.dev/video_feed"
-       alt="Stream MV"
-       onerror="this.style.display='none'; document.getElementById('stream-fallback').style.display='block';">
-  <div class="stream-fallback" id="stream-fallback" style="display:none;">
-    Stream MV tidak tersedia.<br>
-    Pastikan laptop MV menyala dan IP sudah benar.
-  </div>
 </div>
 
 <!-- TOMBOL START / STOP -->
