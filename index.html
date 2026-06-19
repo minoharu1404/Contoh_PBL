@@ -76,7 +76,8 @@
       margin-bottom: 24px;
       min-height: 44px;
       display: flex;
-      align-items: center;
+      flex-direction: column;
+      justify-content: center;
     }
     .alarm-empty { color: #555; font-style: italic; }
     .alarm-active-text {
@@ -85,6 +86,8 @@
     }
     .alarm-time { color: #888; margin-right: 4px; }
     .alarm-sep  { color: #555; margin: 0 4px; }
+    .alarm-row  { margin-bottom: 4px; }
+    .alarm-row:last-child { margin-bottom: 0; }
 
     /* VIDEO STREAM MV */
     .stream-box {
@@ -345,21 +348,44 @@
   }
 
   let alarmSebelumnya = null;
-  function setAlarmBadge(val, ts) {
-    const el = document.getElementById('alarm-content');
-    if (!val) {
-      el.innerHTML = 'Tidak ada alarm';
-      el.className = 'alarm-empty';
+
+  // val = isi field `alaram`, statusMesin = isi field `status_mesin`, ts = timestamp
+  function setAlarmBadge(val, statusMesin, ts) {
+    const el   = document.getElementById('alarm-content');
+    const ada  = val || (statusMesin && statusMesin.toUpperCase() === 'ERROR');
+
+    if (!ada) {
+      el.innerHTML = '<span class="alarm-empty">Tidak ada alarm</span>';
       alarmSebelumnya = null;
-    } else {
-      const waktu = ts ? formatTime(ts) : '—';
-      el.innerHTML = `<span class="alarm-time">(${waktu})</span><span class="alarm-sep">>></span><span class="alarm-active-text">${val}</span>`;
-      el.className = '';
-      // Hanya notif kalau alarm berbeda/baru
-      if (val !== alarmSebelumnya) {
-        alarmSebelumnya = val;
-        notifikasiError('ALARM: ' + val, ts);
-      }
+      return;
+    }
+
+    const waktu = ts ? formatTime(ts) : '—';
+    const tglWaktu = ts ? formatTglWaktu(ts) : '';
+
+    // Baris 1: STATUS MESIN = ERROR (kalau error)
+    // Baris 2: alasan / isi alaram
+    let html = '';
+    if (statusMesin && statusMesin.toUpperCase() === 'ERROR') {
+      html += `<div class="alarm-row"><span class="alarm-active-text">MESIN STATUS = ERROR</span></div>`;
+    }
+    if (val) {
+      html += `<div class="alarm-row">
+        <span class="alarm-time">(${waktu})</span>
+        <span class="alarm-sep">>></span>
+        <span class="alarm-active-text">${val}</span>
+      </div>`;
+    }
+    el.innerHTML = html;
+
+    // Kirim notifikasi kalau alarm baru
+    const kunciAlarm = (statusMesin || '') + '|' + (val || '');
+    if (kunciAlarm !== alarmSebelumnya) {
+      alarmSebelumnya = kunciAlarm;
+      // Bangun pesan notifikasi
+      let judulNotif  = statusMesin === 'ERROR' ? 'MESIN STATUS = ERROR' : 'ALARM MESIN';
+      let pesanNotif  = val ? val : '(tidak ada detail alarm)';
+      kirimNotifikasiAlarm(judulNotif, pesanNotif, tglWaktu || waktu);
     }
   }
 
@@ -521,7 +547,7 @@
       setBadge('badge-vakum',        r.vakum);
       setBadge('badge-arm',          r.arm);
       setBadge('badge-status_mesin', r.status_mesin);
-      setAlarmBadge(r.alaram, r.timestamp);
+      setAlarmBadge(r.alaram, r.status_mesin, r.timestamp);
 
       // Cek MV dari tabel kontrol
       const resKontrol = await fetch(`${SUPABASE_URL}/rest/v1/${TABLE_Kontrol}?select=MV,PB_Start,PB_Stop&limit=1`, { headers: HEADERS });
@@ -561,12 +587,11 @@
         setBadge('badge-vakum',        r.vakum);
         setBadge('badge-arm',          r.arm);
         setBadge('badge-status_mesin', r.status_mesin);
-        setAlarmBadge(r.alaram, r.timestamp);
+        setAlarmBadge(r.alaram, r.status_mesin, r.timestamp);
 
         // Auto-OFF PB_Start/PB_Stop kalau status mesin ERROR
         if (r.status_mesin === 'ERROR') {
           forceStopKontrol('Status Mesin: ERROR');
-          notifikasiError('Status Mesin: ERROR', r.timestamp);
         }
       }
     )
@@ -613,20 +638,21 @@
   function formatWaktuNotif(ts) {
     const d = ts ? new Date(ts) : new Date();
     const pad = n => String(n).padStart(2, '0');
-    return `${pad(d.getDate())}/${pad(d.getMonth()+1)}/${d.getFullYear()} ` +
-           `${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
+    return pad(d.getDate()) + '/' + pad(d.getMonth()+1) + '/' + d.getFullYear() + ' ' +
+           pad(d.getHours()) + ':' + pad(d.getMinutes()) + ':' + pad(d.getSeconds());
   }
 
-  // Toast in-app (selalu tampil sebagai fallback)
+  function formatTglWaktu(ts) { return formatWaktuNotif(ts); }
+
+  // ── Toast in-app (selalu tampil, tidak perlu izin) ──
   function tampilkanToast(judul, pesan, waktuStr) {
     const container = document.getElementById('toast-container');
     const toast = document.createElement('div');
     toast.className = 'toast';
-    toast.innerHTML = `
-      <div class="toast-title">⚠️ ${judul}</div>
-      <div class="toast-body">${pesan}</div>
-      <div class="toast-time">${waktuStr}</div>
-    `;
+    toast.innerHTML =
+      '<div class="toast-title">⚠️ ' + judul + '</div>' +
+      '<div class="toast-body">' + pesan + '</div>' +
+      '<div class="toast-time">⏰ ' + waktuStr + '</div>';
     container.appendChild(toast);
     setTimeout(() => {
       toast.style.transition = 'opacity 0.5s';
@@ -635,11 +661,33 @@
     }, 7000);
   }
 
-  // Push notification ke OS (kalau sudah diberi izin)
-  function kirimNotifOS(judul, pesan, waktuStr) {
-    if (Notification.permission === 'granted') {
+  // ── Daftar Service Worker ──
+  async function daftarSW() {
+    if (!('serviceWorker' in navigator)) return;
+    try {
+      await navigator.serviceWorker.register('/sw.js');
+    } catch(e) {
+      console.warn('SW register gagal:', e);
+    }
+  }
+
+  // ── Kirim notifikasi lewat Service Worker (bisa muncul walau tab di-minimize) ──
+  async function kirimNotifViaSW(judul, pesan, waktuStr) {
+    if (Notification.permission !== 'granted') return;
+    const reg = await navigator.serviceWorker.ready.catch(() => null);
+    if (reg && reg.showNotification) {
+      await reg.showNotification(judul, {
+        body: pesan + '\n⏰ ' + waktuStr,
+        icon: 'https://cdn-icons-png.flaticon.com/512/595/595067.png',
+        badge: 'https://cdn-icons-png.flaticon.com/512/595/595067.png',
+        tag: 'alarm-mesin',
+        requireInteraction: true,
+        vibrate: [200, 100, 200]
+      });
+    } else {
+      // Fallback: Notification API biasa
       new Notification(judul, {
-        body: pesan + "\n⏰ " + waktuStr,
+        body: pesan + '\n⏰ ' + waktuStr,
         icon: 'https://cdn-icons-png.flaticon.com/512/595/595067.png',
         tag: 'alarm-mesin',
         requireInteraction: true
@@ -647,21 +695,21 @@
     }
   }
 
-  // Fungsi utama: tampilkan toast + notif OS
-  function notifikasiError(jenisError, timestamp) {
-    const waktuStr = formatWaktuNotif(timestamp);
-    tampilkanToast('Error Mesin', jenisError, waktuStr);
-    kirimNotifOS('⚠️ Error Mesin', jenisError, waktuStr);
+  // ── Fungsi utama yang dipanggil saat ada alarm/error ──
+  function kirimNotifikasiAlarm(judul, pesan, waktuStr) {
+    tampilkanToast(judul, pesan, waktuStr);   // selalu tampil di halaman
+    kirimNotifViaSW(judul, pesan, waktuStr);  // push ke OS / HP
   }
 
-  // Minta izin notifikasi
+  // ── Minta izin notifikasi ──
   window.mintaIzinNotif = async function() {
     if (!('Notification' in window)) {
-      alert('Browser ini tidak mendukung notifikasi.');
+      alert('Browser ini tidak mendukung notifikasi push.');
       return;
     }
     const result = await Notification.requestPermission();
     updateBannerNotif(result);
+    if (result === 'granted') daftarSW();
   };
 
   function updateBannerNotif(permission) {
@@ -670,20 +718,21 @@
     const btn    = document.getElementById('btn-notif');
     if (permission === 'granted') {
       banner.className = 'notif-banner granted';
-      text.textContent = 'Notifikasi aktif — kamu akan menerima alert error di device ini.';
+      text.textContent = '✅ Notifikasi aktif — alert error akan muncul di HP/laptop ini.';
       btn.style.display = 'none';
     } else if (permission === 'denied') {
       banner.className = 'notif-banner denied';
-      text.textContent = 'Notifikasi diblokir. Aktifkan manual di pengaturan browser (ikon kunci di address bar).';
+      text.textContent = '🚫 Notifikasi diblokir. Aktifkan di Pengaturan Browser → Site Settings → Notifications.';
       btn.style.display = 'none';
     } else {
-      text.textContent = 'Aktifkan notifikasi agar dapat menerima alert error di device ini.';
+      text.textContent = '🔔 Aktifkan notifikasi agar alert error muncul di HP/laptop ini.';
     }
   }
 
-  // Cek status notifikasi saat halaman dibuka
+  // ── Init notifikasi & SW saat halaman dibuka ──
   if ('Notification' in window) {
     updateBannerNotif(Notification.permission);
+    if (Notification.permission === 'granted') daftarSW();
   } else {
     document.getElementById('notif-banner').style.display = 'none';
   }
