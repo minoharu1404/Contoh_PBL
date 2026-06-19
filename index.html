@@ -176,11 +176,58 @@
     .log-line.machine-off .log-event { color: #ce9178; }
 
     .log-empty { color: #555; font-style: italic; }
+
+    /* NOTIF BANNER */
+    .notif-banner {
+      display: flex; align-items: center; gap: 10px;
+      background: #fff8e1; border: 1px solid #ffe082;
+      border-radius: 6px; padding: 10px 14px;
+      margin-bottom: 16px; font-size: 13px; color: #555;
+    }
+    .notif-banner.granted { background: #e8f5e9; border-color: #a5d6a7; color: #2e7d32; }
+    .notif-banner.denied  { background: #fce4ec; border-color: #f48fb1; color: #880e4f; }
+    .btn-notif {
+      padding: 5px 14px; font-size: 12px; font-weight: bold;
+      border: none; border-radius: 4px; cursor: pointer;
+      background: #ff9800; color: white;
+    }
+    .btn-notif:hover { background: #e65100; }
+
+    /* TOAST notifikasi in-app (fallback) */
+    #toast-container {
+      position: fixed; top: 16px; right: 16px;
+      z-index: 9999; display: flex; flex-direction: column; gap: 8px;
+      max-width: 320px;
+    }
+    .toast {
+      background: #1e1e1e; color: #f48771;
+      border-left: 4px solid #dc3545;
+      border-radius: 6px; padding: 12px 16px;
+      font-family: 'Courier New', monospace; font-size: 13px;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+      animation: slideIn 0.3s ease;
+    }
+    .toast .toast-title { font-weight: bold; margin-bottom: 4px; color: #f48771; }
+    .toast .toast-body  { color: #d4d4d4; font-size: 12px; }
+    .toast .toast-time  { color: #888; font-size: 11px; margin-top: 4px; }
+    @keyframes slideIn {
+      from { transform: translateX(120%); opacity: 0; }
+      to   { transform: translateX(0);    opacity: 1; }
+    }
   </style>
 </head>
 <body>
 
+<!-- TOAST CONTAINER (in-app fallback) -->
+<div id="toast-container"></div>
+
 <h2>Dashboard Mesin</h2>
+
+<!-- NOTIFIKASI BANNER -->
+<div class="notif-banner" id="notif-banner">
+  <span id="notif-status-text">🔔 Aktifkan notifikasi agar dapat menerima alert error di device ini.</span>
+  <button class="btn-notif" id="btn-notif" onclick="mintaIzinNotif()">Aktifkan</button>
+</div>
 
 <div class="koneksi">
   <span class="dot" id="dot"></span>
@@ -297,15 +344,22 @@
     el.className = 'badge ' + getBadgeClass(val);
   }
 
+  let alarmSebelumnya = null;
   function setAlarmBadge(val, ts) {
     const el = document.getElementById('alarm-content');
     if (!val) {
       el.innerHTML = 'Tidak ada alarm';
       el.className = 'alarm-empty';
+      alarmSebelumnya = null;
     } else {
       const waktu = ts ? formatTime(ts) : '—';
       el.innerHTML = `<span class="alarm-time">(${waktu})</span><span class="alarm-sep">>></span><span class="alarm-active-text">${val}</span>`;
       el.className = '';
+      // Hanya notif kalau alarm berbeda/baru
+      if (val !== alarmSebelumnya) {
+        alarmSebelumnya = val;
+        notifikasiError('ALARM: ' + val, ts);
+      }
     }
   }
 
@@ -512,6 +566,7 @@
         // Auto-OFF PB_Start/PB_Stop kalau status mesin ERROR
         if (r.status_mesin === 'ERROR') {
           forceStopKontrol('Status Mesin: ERROR');
+          notifikasiError('Status Mesin: ERROR', r.timestamp);
         }
       }
     )
@@ -552,6 +607,86 @@
       }
     )
     .subscribe();
+
+
+  // ─── NOTIFIKASI ───
+  function formatWaktuNotif(ts) {
+    const d = ts ? new Date(ts) : new Date();
+    const pad = n => String(n).padStart(2, '0');
+    return `${pad(d.getDate())}/${pad(d.getMonth()+1)}/${d.getFullYear()} ` +
+           `${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
+  }
+
+  // Toast in-app (selalu tampil sebagai fallback)
+  function tampilkanToast(judul, pesan, waktuStr) {
+    const container = document.getElementById('toast-container');
+    const toast = document.createElement('div');
+    toast.className = 'toast';
+    toast.innerHTML = `
+      <div class="toast-title">⚠️ ${judul}</div>
+      <div class="toast-body">${pesan}</div>
+      <div class="toast-time">${waktuStr}</div>
+    `;
+    container.appendChild(toast);
+    setTimeout(() => {
+      toast.style.transition = 'opacity 0.5s';
+      toast.style.opacity = '0';
+      setTimeout(() => toast.remove(), 500);
+    }, 7000);
+  }
+
+  // Push notification ke OS (kalau sudah diberi izin)
+  function kirimNotifOS(judul, pesan, waktuStr) {
+    if (Notification.permission === 'granted') {
+      new Notification(judul, {
+        body: pesan + "\n⏰ " + waktuStr,
+        icon: 'https://cdn-icons-png.flaticon.com/512/595/595067.png',
+        tag: 'alarm-mesin',
+        requireInteraction: true
+      });
+    }
+  }
+
+  // Fungsi utama: tampilkan toast + notif OS
+  function notifikasiError(jenisError, timestamp) {
+    const waktuStr = formatWaktuNotif(timestamp);
+    tampilkanToast('Error Mesin', jenisError, waktuStr);
+    kirimNotifOS('⚠️ Error Mesin', jenisError, waktuStr);
+  }
+
+  // Minta izin notifikasi
+  window.mintaIzinNotif = async function() {
+    if (!('Notification' in window)) {
+      alert('Browser ini tidak mendukung notifikasi.');
+      return;
+    }
+    const result = await Notification.requestPermission();
+    updateBannerNotif(result);
+  };
+
+  function updateBannerNotif(permission) {
+    const banner = document.getElementById('notif-banner');
+    const text   = document.getElementById('notif-status-text');
+    const btn    = document.getElementById('btn-notif');
+    if (permission === 'granted') {
+      banner.className = 'notif-banner granted';
+      text.textContent = 'Notifikasi aktif — kamu akan menerima alert error di device ini.';
+      btn.style.display = 'none';
+    } else if (permission === 'denied') {
+      banner.className = 'notif-banner denied';
+      text.textContent = 'Notifikasi diblokir. Aktifkan manual di pengaturan browser (ikon kunci di address bar).';
+      btn.style.display = 'none';
+    } else {
+      text.textContent = 'Aktifkan notifikasi agar dapat menerima alert error di device ini.';
+    }
+  }
+
+  // Cek status notifikasi saat halaman dibuka
+  if ('Notification' in window) {
+    updateBannerNotif(Notification.permission);
+  } else {
+    document.getElementById('notif-banner').style.display = 'none';
+  }
 
   // ─── INIT ───
   loadAwal();
