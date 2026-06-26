@@ -5,133 +5,328 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>Dashboard Mesin</title>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
   <style>
     * { box-sizing: border-box; }
+
+    :root {
+      --bg:        #0c1014;
+      --panel:     #161c23;
+      --panel-2:   #1c232b;
+      --line:      #28323d;
+      --text:      #e7edf2;
+      --text-dim:  #7c8a99;
+      --text-faint:#4c5a68;
+
+      --ok:        #34d399;
+      --ok-dim:    #163328;
+      --warn:      #f5b94f;
+      --warn-dim:  #332a14;
+      --danger:    #f8625f;
+      --danger-dim:#3a1819;
+      --idle:      #3a4654;
+
+      --mono: 'JetBrains Mono', ui-monospace, 'SF Mono', Consolas, monospace;
+      --sans: 'Inter', -apple-system, system-ui, sans-serif;
+    }
+
+    html { background: var(--bg); }
+
     body {
-      font-family: Arial, sans-serif;
+      font-family: var(--sans);
       margin: 0;
-      padding: 20px;
-      background: #f5f5f5;
-      color: #333;
+      padding: 0;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
     }
-    h2 { margin-bottom: 20px; font-size: 20px; color: #222; }
-    h3 { font-size: 15px; margin-bottom: 12px; color: #444; }
 
-    /* KONEKSI */
-    .koneksi {
-      font-size: 12px; color: #666;
-      display: flex; align-items: center; gap: 6px;
+    .wrap {
+      max-width: 1080px;
+      margin: 0 auto;
+      padding: 20px 20px 48px;
+    }
+
+    /* ── HEADER ── */
+    .topbar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+      padding-bottom: 18px;
       margin-bottom: 20px;
+      border-bottom: 1px solid var(--line);
+      flex-wrap: wrap;
     }
-    .dot { width: 8px; height: 8px; border-radius: 50%; background: orange; display: inline-block; }
-    .dot.ok  { background: #28a745; }
-    .dot.err { background: #dc3545; }
+    .topbar-title {
+      display: flex;
+      align-items: baseline;
+      gap: 10px;
+    }
+    h2 {
+      margin: 0;
+      font-size: 19px;
+      font-weight: 700;
+      letter-spacing: 0.2px;
+      color: var(--text);
+    }
+    .topbar-tag {
+      font-family: var(--mono);
+      font-size: 11px;
+      color: var(--text-faint);
+      letter-spacing: 0.5px;
+      text-transform: uppercase;
+    }
 
-    /* TOMBOL */
-    .btn-row { display: flex; gap: 12px; margin-bottom: 20px; align-items: center; }
-    .btn-start, .btn-stop {
-      padding: 10px 30px; font-size: 15px; font-weight: bold;
-      border: none; border-radius: 5px; cursor: pointer;
+    /* KONEKSI — LED indicator style */
+    .koneksi {
+      font-family: var(--mono);
+      font-size: 11.5px;
+      color: var(--text-dim);
+      display: flex; align-items: center; gap: 8px;
+      letter-spacing: 0.3px;
     }
-    .btn-start { background-color: #28a745; color: white; }
-    .btn-stop  { background-color: #dc3545; color: white; }
-    .btn-start:disabled, .btn-stop:disabled { opacity: 0.35; cursor: not-allowed; }
-    .btn-start:hover:not(:disabled) { background-color: #218838; }
-    .btn-stop:hover:not(:disabled)  { background-color: #c82333; }
+    .dot {
+      width: 8px; height: 8px; border-radius: 50%;
+      background: var(--idle); display: inline-block;
+      box-shadow: 0 0 0 3px transparent;
+      transition: box-shadow .3s, background .3s;
+    }
+    .dot.ok  { background: var(--ok); box-shadow: 0 0 8px 1px rgba(52,211,153,0.55); }
+    .dot.err { background: var(--danger); box-shadow: 0 0 8px 1px rgba(248,98,95,0.55); }
+
+    h3 {
+      font-size: 12.5px;
+      font-weight: 600;
+      margin: 0 0 10px;
+      color: var(--text-dim);
+      text-transform: uppercase;
+      letter-spacing: 0.8px;
+    }
+
+    /* ── LAYOUT GRID ── */
+    .grid {
+      display: grid;
+      grid-template-columns: 1.1fr 1.6fr;
+      gap: 18px;
+    }
+    .col { display: flex; flex-direction: column; gap: 18px; min-width: 0; }
+
+    .card {
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      padding: 16px 18px;
+    }
+
+    /* VIDEO STREAM MV */
+    .stream-box {
+      background: #000;
+      border-radius: 8px;
+      overflow: hidden;
+      width: 100%;
+      aspect-ratio: 4 / 3;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      border: 1px solid var(--line);
+    }
+    .stream-box img {
+      width: 100%; height: 100%;
+      object-fit: cover; display: block;
+    }
+    .stream-fallback {
+      color: var(--text-faint);
+      font-size: 12.5px;
+      text-align: center;
+      padding: 20px;
+      line-height: 1.6;
+    }
+
+    /* ── TOMBOL / KONTROL ── */
+    .ctrl-card { display: flex; flex-direction: column; gap: 14px; }
+    .btn-row { display: flex; gap: 10px; align-items: stretch; }
+    .btn-start, .btn-stop {
+      flex: 1;
+      padding: 14px 0;
+      font-family: var(--sans);
+      font-size: 14px;
+      font-weight: 700;
+      letter-spacing: 0.4px;
+      border: 1px solid transparent;
+      border-radius: 8px;
+      cursor: pointer;
+      transition: filter .15s, transform .05s;
+    }
+    .btn-start { background: var(--ok); color: #06251a; }
+    .btn-stop  { background: var(--danger); color: #2b0908; }
+    .btn-start:disabled, .btn-stop:disabled {
+      background: var(--panel-2);
+      color: var(--text-faint);
+      border-color: var(--line);
+      cursor: not-allowed;
+    }
+    .btn-start:hover:not(:disabled),
+    .btn-stop:hover:not(:disabled) { filter: brightness(1.08); }
+    .btn-start:active:not(:disabled),
+    .btn-stop:active:not(:disabled) { transform: scale(0.98); }
 
     .mv-indicator {
-      font-size: 12px; color: #888;
-      display: flex; align-items: center; gap: 5px;
+      font-family: var(--mono);
+      font-size: 12px;
+      color: var(--text-dim);
+      display: flex; align-items: center; gap: 7px;
+      padding: 8px 12px;
+      background: var(--panel-2);
+      border: 1px solid var(--line);
+      border-radius: 7px;
+      letter-spacing: 0.3px;
     }
-    .mv-dot { width: 8px; height: 8px; border-radius: 50%; background: #ccc; display: inline-block; }
-    .mv-dot.on { background: #28a745; }
+    .mv-dot {
+      width: 8px; height: 8px; border-radius: 50%;
+      background: var(--idle); display: inline-block;
+    }
+    .mv-dot.on { background: var(--warn); box-shadow: 0 0 8px 1px rgba(245,185,79,0.55); }
 
-    /* STATUS KOMPONEN */
-    .komp-grid { display: flex; flex-wrap: wrap; gap: 10px; margin-bottom: 24px; }
+    /* ── STATUS KOMPONEN ── */
+    .komp-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
     .komp-item {
-      background: white; border: 1px solid #ddd;
-      border-radius: 6px; padding: 10px 16px; min-width: 130px;
+      background: var(--panel-2);
+      border: 1px solid var(--line);
+      border-radius: 7px;
+      padding: 9px 12px;
     }
-    .komp-item .komp-nama { font-size: 12px; color: #888; margin-bottom: 5px; }
+    .komp-item .komp-nama {
+      font-size: 10.5px;
+      color: var(--text-faint);
+      margin-bottom: 6px;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      font-weight: 600;
+    }
 
     .badge {
-      display: inline-block; padding: 2px 10px;
-      border-radius: 4px; font-size: 12px; font-weight: bold;
+      display: inline-block;
+      padding: 3px 10px;
+      border-radius: 4px;
+      font-family: var(--mono);
+      font-size: 12px;
+      font-weight: 600;
+      letter-spacing: 0.3px;
     }
-    .badge.on   { background: #d4edda; color: #155724; border: 1px solid #c3e6cb; }
-    .badge.off  { background: #f8f9fa; color: #6c757d; border: 1px solid #dee2e6; }
-    .badge.cw   { background: #d4edda; color: #155724; border: 1px solid #c3e6cb; }
-    .badge.ccw  { background: #f8f9fa; color: #6c757d; border: 1px solid #dee2e6; }
-    .badge.error { background: #fff3cd; color: #856404; border: 1px solid #ffeeba; }
-    .badge.alarm-active { background: #f8d7da; color: #721c24; border: 1px solid #f5c6cb; }
-    .badge.dash { background: #f8f9fa; color: #aaa; border: 1px solid #dee2e6; }
+    .badge.on    { background: var(--ok-dim); color: var(--ok); }
+    .badge.off   { background: var(--panel); color: var(--text-dim); }
+    .badge.cw    { background: var(--ok-dim); color: var(--ok); }
+    .badge.ccw   { background: var(--panel); color: var(--text-dim); }
+    .badge.error { background: var(--warn-dim); color: var(--warn); }
+    .badge.alarm-active { background: var(--danger-dim); color: var(--danger); }
+    .badge.dash  { background: var(--panel); color: var(--text-faint); }
 
-    /* ALARM BOX */
+    /* ── ALARM BOX ── */
     .alarm-box {
-      background: #1e1e1e;
-      border-radius: 6px;
-      padding: 14px 16px;
-      font-family: 'Courier New', monospace;
-      font-size: 13px;
-      margin-bottom: 24px;
-      min-height: 44px;
+      background: #150e0e;
+      border: 1px solid #3a1d1d;
+      border-radius: 7px;
+      padding: 13px 15px;
+      font-family: var(--mono);
+      font-size: 12.5px;
+      min-height: 20px;
       display: flex;
       align-items: center;
     }
-    .alarm-empty { color: #555; font-style: italic; }
-    .alarm-active-text {
-      color: #f48771;
-      font-weight: bold;
-    }
-    .alarm-time { color: #888; margin-right: 4px; }
-    .alarm-sep  { color: #555; margin: 0 4px; }
+    .alarm-empty { color: var(--text-faint); font-style: normal; }
+    .alarm-active-text { color: var(--danger); font-weight: 600; }
+    .alarm-time { color: var(--text-faint); margin-right: 4px; }
+    .alarm-sep  { color: var(--text-faint); margin: 0 4px; }
 
-    /* TOAST NOTIFICATION */
+    /* ── LOG EVENT ── */
+    .log-header {
+      display: flex; align-items: center;
+      justify-content: space-between; margin-bottom: 10px;
+    }
+    .btn-clear {
+      background: transparent;
+      border: 1px solid var(--line);
+      color: var(--text-dim);
+      padding: 5px 11px;
+      border-radius: 6px;
+      font-size: 11.5px;
+      font-family: var(--sans);
+      cursor: pointer;
+      transition: background .15s, color .15s;
+    }
+    .btn-clear:hover { background: var(--panel-2); color: var(--text); }
+
+    .log-box {
+      background: #0a0d11;
+      border: 1px solid var(--line);
+      border-radius: 7px;
+      padding: 13px 15px;
+      font-family: var(--mono);
+      font-size: 12px;
+      max-height: 320px;
+      overflow-y: auto;
+      display: flex;
+      flex-direction: column-reverse;
+    }
+    .log-box::-webkit-scrollbar { width: 8px; }
+    .log-box::-webkit-scrollbar-thumb { background: var(--line); border-radius: 4px; }
+
+    .log-inner { display: flex; flex-direction: column; gap: 4px; }
+
+    .log-line { color: var(--text-dim); line-height: 1.6; }
+    .log-line .log-time { color: var(--text-faint); }
+    .log-line .log-sep  { color: var(--text-faint); margin: 0 4px; }
+    .log-line .log-event { color: #8ec5ff; }
+    .log-line.alarm .log-event { color: var(--danger); }
+    .log-line.machine-on .log-event { color: var(--ok); }
+    .log-line.machine-off .log-event { color: var(--warn); }
+
+    .log-empty { color: var(--text-faint); font-style: normal; }
+
+    /* ── TOAST NOTIFICATION ── */
     .toast-container {
       position: fixed;
-      top: 16px;
-      right: 16px;
-      left: 16px;
+      top: 16px; right: 16px; left: 16px;
       z-index: 9999;
-      display: flex;
-      flex-direction: column;
-      gap: 8px;
+      display: flex; flex-direction: column; gap: 8px;
       pointer-events: none;
       align-items: flex-end;
     }
     .toast {
-      background: #2a1215;
-      border: 1px solid #f5c6cb;
-      border-left: 4px solid #dc3545;
-      color: #f8d7da;
+      background: #1a0f0f;
+      border: 1px solid #4a2424;
+      border-left: 3px solid var(--danger);
+      color: #fbd5d3;
       padding: 12px 16px;
-      border-radius: 6px;
+      border-radius: 8px;
       font-size: 13px;
       max-width: 360px;
       width: 100%;
-      box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+      box-shadow: 0 8px 24px rgba(0,0,0,0.5);
       pointer-events: auto;
       animation: toast-in 0.25s ease-out;
+      font-family: var(--sans);
     }
     .toast.hide { animation: toast-out 0.25s ease-in forwards; }
     .toast-title {
-      font-weight: bold;
+      font-weight: 700;
       color: #ff8a8a;
-      margin-bottom: 2px;
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      gap: 8px;
+      margin-bottom: 3px;
+      display: flex; align-items: center;
+      justify-content: space-between; gap: 8px;
+      font-size: 13px;
     }
     .toast-close {
-      cursor: pointer;
-      color: #f8d7da;
-      opacity: 0.6;
-      font-size: 14px;
-      line-height: 1;
+      cursor: pointer; color: #fbd5d3; opacity: 0.55;
+      font-size: 15px; line-height: 1;
     }
     .toast-close:hover { opacity: 1; }
-    .toast-time { color: #c98b90; font-size: 11px; margin-top: 4px; }
+    .toast-time {
+      color: #b58181; font-size: 11px; margin-top: 5px;
+      font-family: var(--mono);
+    }
 
     @keyframes toast-in {
       from { opacity: 0; transform: translateY(-12px); }
@@ -142,179 +337,131 @@
       to   { opacity: 0; transform: translateY(-12px); }
     }
 
+    /* ── RESPONSIVE ── */
+    @media (max-width: 860px) {
+      .grid { grid-template-columns: 1fr; }
+    }
+
     @media (max-width: 600px) {
+      .wrap { padding: 14px 14px 36px; }
+      h2 { font-size: 17px; }
       .toast-container { left: 12px; right: 12px; top: 12px; align-items: stretch; }
       .toast { max-width: 100%; }
-    }
-
-    /* VIDEO STREAM MV */
-    .stream-box {
-      background: #000;
-      border-radius: 8px;
-      overflow: hidden;
-      margin-bottom: 20px;
-      max-width: 480px;
-      aspect-ratio: 4 / 3;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-    }
-    .stream-box img {
-      width: 100%;
-      height: 100%;
-      object-fit: cover;
-      display: block;
-    }
-    .stream-fallback {
-      color: #666;
-      font-size: 13px;
-      text-align: center;
-      padding: 20px;
-    }
-
-    /* RESPONSIVE — HP / layar kecil */
-    @media (max-width: 600px) {
-      body { padding: 12px; }
-      h2 { font-size: 18px; }
 
       .btn-row { flex-wrap: wrap; }
-      .btn-start, .btn-stop {
-        flex: 1;
-        padding: 12px 0;
-        font-size: 14px;
-        min-width: 100px;
-      }
-      .mv-indicator {
-        width: 100%;
-        margin-top: 6px;
-        justify-content: center;
-      }
+      .btn-start, .btn-stop { min-width: 100px; padding: 13px 0; font-size: 13.5px; }
+      .mv-indicator { width: 100%; justify-content: center; }
 
-      .stream-box { max-width: 100%; }
-
-      .komp-grid { gap: 8px; }
-      .komp-item {
-        min-width: calc(50% - 4px);
-        flex: 1 1 calc(50% - 4px);
-        padding: 8px 12px;
-      }
-
-      .log-box, .alarm-box { font-size: 12px; padding: 10px 12px; }
+      .komp-grid { grid-template-columns: 1fr 1fr; }
+      .log-box, .alarm-box { font-size: 11.5px; padding: 11px 13px; }
       .log-box { max-height: 240px; }
     }
-
-    /* LOG EVENT */
-    .log-header {
-      display: flex; align-items: center;
-      justify-content: space-between; margin-bottom: 10px;
-    }
-    .btn-clear {
-      background: white; border: 1px solid #ccc;
-      padding: 5px 12px; border-radius: 4px;
-      font-size: 12px; cursor: pointer; color: #555;
-    }
-    .btn-clear:hover { background: #f0f0f0; }
-
-    .log-box {
-      background: #1e1e1e;
-      border-radius: 6px;
-      padding: 14px 16px;
-      font-family: 'Courier New', monospace;
-      font-size: 13px;
-      max-height: 320px;
-      overflow-y: auto;
-      display: flex;
-      flex-direction: column-reverse;
-    }
-    .log-inner { display: flex; flex-direction: column; gap: 3px; }
-
-    .log-line { color: #d4d4d4; line-height: 1.6; }
-    .log-line .log-time { color: #888; }
-    .log-line .log-sep  { color: #555; margin: 0 4px; }
-    .log-line .log-event { color: #9cdcfe; }
-    .log-line.alarm .log-event { color: #f48771; }
-    .log-line.machine-on .log-event { color: #6a9955; }
-    .log-line.machine-off .log-event { color: #ce9178; }
-
-    .log-empty { color: #555; font-style: italic; }
   </style>
 </head>
 <body>
 
 <div class="toast-container" id="toast-container"></div>
 
-<h2>Dashboard Mesin</h2>
+<div class="wrap">
 
-<div class="koneksi">
-  <span class="dot" id="dot"></span>
-  <span id="conn-label">Menghubungkan...</span>
-</div>
+  <div class="topbar">
+    <div class="topbar-title">
+      <h2>Dashboard Mesin</h2>
+      <span class="topbar-tag">Supply Process</span>
+    </div>
+    <div class="koneksi">
+      <span class="dot" id="dot"></span>
+      <span id="conn-label">Menghubungkan...</span>
+    </div>
+  </div>
 
-<!-- VIDEO STREAM MV -->
-<div class="stream-box" id="stream-box">
-  <img id="mv-stream"
-       src="https://sunglasses-steam-chapter-personalized.trycloudflare.com/video_feed"
-       alt="Stream MV"
-       onerror="this.style.display='none'; document.getElementById('stream-fallback').style.display='block';">
-  <div class="stream-fallback" id="stream-fallback" style="display:none;">
-    Stream MV tidak tersedia.<br>
-    Pastikan laptop MV menyala dan URL tunnel sudah benar.
-  </div>
-</div>
+  <div class="grid">
 
-<!-- TOMBOL START / STOP -->
-<div class="btn-row">
-  <button class="btn-start" id="btn-start" onclick="kirimStart()" disabled>START</button>
-  <button class="btn-stop"  id="btn-stop"  onclick="kirimStop()" disabled>STOP</button>
-  <div class="mv-indicator">
-    <span class="mv-dot" id="mv-dot"></span>
-    <span id="mv-label">MV: —</span>
-  </div>
-</div>
+    <!-- KOLOM KIRI: stream + kontrol -->
+    <div class="col">
 
-<!-- STATUS KOMPONEN -->
-<h3>Status Komponen</h3>
-<div class="komp-grid">
-  <div class="komp-item">
-    <div class="komp-nama">Motor Atas</div>
-    <span class="badge dash" id="badge-motor_atas">—</span>
-  </div>
-  <div class="komp-item">
-    <div class="komp-nama">Stoper Kiri</div>
-    <span class="badge dash" id="badge-stoper_kiri">—</span>
-  </div>
-  <div class="komp-item">
-    <div class="komp-nama">Stoper Kanan</div>
-    <span class="badge dash" id="badge-stoper_kanan">—</span>
-  </div>
-  <div class="komp-item">
-    <div class="komp-nama">Vakum</div>
-    <span class="badge dash" id="badge-vakum">—</span>
-  </div>
-  <div class="komp-item">
-    <div class="komp-nama">Arm</div>
-    <span class="badge dash" id="badge-arm">—</span>
-  </div>
-  <div class="komp-item">
-    <div class="komp-nama">Status Mesin</div>
-    <span class="badge dash" id="badge-status_mesin">—</span>
-  </div>
-</div>
+      <div class="card">
+        <h3>Machine Vision</h3>
+        <div class="stream-box" id="stream-box">
+          <img id="mv-stream"
+               src="https://sunglasses-steam-chapter-personalized.trycloudflare.com/video_feed"
+               alt="Stream MV"
+               onerror="this.style.display='none'; document.getElementById('stream-fallback').style.display='block';">
+          <div class="stream-fallback" id="stream-fallback" style="display:none;">
+            Stream MV tidak tersedia.<br>
+            Pastikan laptop MV menyala dan URL tunnel sudah benar.
+          </div>
+        </div>
+      </div>
 
-<!-- ALARM -->
-<h3>Alarm</h3>
-<div class="alarm-box" id="alarm-box">
-  <span class="alarm-empty" id="alarm-content">Tidak ada alarm</span>
-</div>
+      <div class="card ctrl-card">
+        <h3>Kontrol</h3>
+        <div class="btn-row">
+          <button class="btn-start" id="btn-start" onclick="kirimStart()" disabled>START</button>
+          <button class="btn-stop"  id="btn-stop"  onclick="kirimStop()" disabled>STOP</button>
+        </div>
+        <div class="mv-indicator">
+          <span class="mv-dot" id="mv-dot"></span>
+          <span id="mv-label">MV: —</span>
+        </div>
+      </div>
 
-<!-- LOG EVENT -->
-<div class="log-header">
-  <h3 style="margin:0">Log Aktivitas</h3>
-  <button class="btn-clear" onclick="clearLog()">✕ Bersihkan</button>
-</div>
-<div class="log-box" id="log-box">
-  <div class="log-inner" id="log-inner">
-    <span class="log-empty">Menunggu data...</span>
+      <div class="card">
+        <h3>Alarm</h3>
+        <div class="alarm-box" id="alarm-box">
+          <span class="alarm-empty" id="alarm-content">Tidak ada alarm</span>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- KOLOM KANAN: status + log -->
+    <div class="col">
+
+      <div class="card">
+        <h3>Status Komponen</h3>
+        <div class="komp-grid">
+          <div class="komp-item">
+            <div class="komp-nama">Motor Atas</div>
+            <span class="badge dash" id="badge-motor_atas">—</span>
+          </div>
+          <div class="komp-item">
+            <div class="komp-nama">Stoper Kiri</div>
+            <span class="badge dash" id="badge-stoper_kiri">—</span>
+          </div>
+          <div class="komp-item">
+            <div class="komp-nama">Stoper Kanan</div>
+            <span class="badge dash" id="badge-stoper_kanan">—</span>
+          </div>
+          <div class="komp-item">
+            <div class="komp-nama">Vakum</div>
+            <span class="badge dash" id="badge-vakum">—</span>
+          </div>
+          <div class="komp-item">
+            <div class="komp-nama">Arm</div>
+            <span class="badge dash" id="badge-arm">—</span>
+          </div>
+          <div class="komp-item">
+            <div class="komp-nama">Status Mesin</div>
+            <span class="badge dash" id="badge-status_mesin">—</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="card" style="flex:1; display:flex; flex-direction:column;">
+        <div class="log-header">
+          <h3 style="margin:0">Log Aktivitas</h3>
+          <button class="btn-clear" onclick="clearLog()">✕ Bersihkan</button>
+        </div>
+        <div class="log-box" id="log-box">
+          <div class="log-inner" id="log-inner">
+            <span class="log-empty">Menunggu data...</span>
+          </div>
+        </div>
+      </div>
+
+    </div>
+
   </div>
 </div>
 
