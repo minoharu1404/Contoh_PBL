@@ -492,6 +492,7 @@
   let mvOn      = false;
   let mesinJalan = false;
   let alarmSebelumnya = null;
+  let statusMesinSebelumnya = null;
 
   // ─── KONEKSI INDIKATOR ───
   function setConn(ok) {
@@ -746,6 +747,7 @@
       setBadge('badge-status_mesin', r.status_mesin);
       setAlarmBadge(r.alaram, r.timestamp);
       alarmSebelumnya = r.alaram;  // inisialisasi, supaya tidak trigger notif palsu saat load awal
+      statusMesinSebelumnya = r.status_mesin;  // sama, untuk status mesin
       const resKontrol = await fetch(`${SUPABASE_URL}/rest/v1/${TABLE_Kontrol}?select=MV,PB_Start,PB_Stop&limit=1`, { headers: HEADERS });
       const rowsKontrol = await resKontrol.json();
       if (rowsKontrol.length > 0) {
@@ -785,17 +787,18 @@
         setBadge('badge-status_mesin', r.status_mesin);
         setAlarmBadge(r.alaram, r.timestamp);
 
-        // Notifikasi kalau ada alarm BARU (beda dari sebelumnya, dan tidak kosong)
-        if (r.alaram && r.alaram !== alarmSebelumnya) {
-          showErrorNotif('Alarm Mesin', r.alaram);
-        }
-        alarmSebelumnya = r.alaram;
+        // Alarm dan status_mesin ERROR selalu terjadi bersamaan (1 kesatuan
+        // dari Python), jadi cukup 1 notifikasi gabungan, dipicu hanya saat
+        // BARU jadi ERROR (bukan tiap row selama masih ERROR).
+        const baruJadiError = r.status_mesin === 'ERROR' && statusMesinSebelumnya !== 'ERROR';
 
-        // Auto-OFF PB_Start/PB_Stop kalau status mesin ERROR
-        if (r.status_mesin === 'ERROR') {
+        if (baruJadiError) {
           showErrorNotif('Status Mesin: ERROR', r.alaram || 'Mesin dalam kondisi error.');
           forceStopKontrol('Status Mesin: ERROR');
         }
+
+        alarmSebelumnya = r.alaram;
+        statusMesinSebelumnya = r.status_mesin;
       }
     )
     .subscribe((status) => {
