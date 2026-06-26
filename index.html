@@ -333,6 +333,13 @@
     "Authorization": "Bearer " + SUPABASE_KEY
   };
 
+  // ─── SERVICE WORKER (untuk notifikasi sistem di HP) ───
+  if ('serviceWorker' in navigator) {
+    navigator.serviceWorker.register('sw.js')
+      .then(() => console.log('Service Worker siap!'))
+      .catch(err => console.error('Service Worker gagal:', err));
+  }
+
   // State
   let mvOn      = false;
   let mesinJalan = false;
@@ -475,42 +482,62 @@
     }
   }
 
-  // ─── NOTIFIKASI ERROR (TOAST + BROWSER) ───
+  // ─── NOTIFIKASI ERROR (SERVICE WORKER + TOAST) ───
   // Minta izin browser notification sekali di awal (kalau didukung & belum ditolak)
   if ('Notification' in window && Notification.permission === 'default') {
     Notification.requestPermission();
   }
 
-  function showErrorNotif(judul, pesan) {
+  async function showErrorNotif(statusMesin, jenisError) {
     const waktu = new Date().toLocaleTimeString('id-ID');
+    const judul = `⚠️ ${statusMesin}`;
+    const pesan = jenisError || 'Mesin dalam kondisi tidak normal.';
 
-    // 1) Toast di halaman (selalu muncul, HP & laptop)
-    const container = document.getElementById('toast-container');
-    const toast = document.createElement('div');
-    toast.className = 'toast';
-    toast.innerHTML = `
-      <div class="toast-title">
-        <span>⚠ ${judul}</span>
-        <span class="toast-close" onclick="this.closest('.toast').remove()">✕</span>
-      </div>
-      <div>${pesan}</div>
-      <div class="toast-time">${waktu}</div>
-    `;
-    container.appendChild(toast);
+    // 1) Notifikasi SISTEM via Service Worker — ditembak duluan,
+    //    supaya proses pengiriman ke sistem Android selesai dulu
+    //    sebelum toast (yang juga akan memblok render) muncul.
+    if ("Notification" in window && 'serviceWorker' in navigator) {
+      let permission = Notification.permission;
+      if (permission !== "granted") {
+        permission = await Notification.requestPermission();
+      }
 
-    // Auto hilang setelah 8 detik
-    setTimeout(() => {
-      toast.classList.add('hide');
-      setTimeout(() => toast.remove(), 250);
-    }, 8000);
-
-    // 2) Browser notification (muncul walau tab di background, kalau diizinkan)
-    if ('Notification' in window && Notification.permission === 'granted') {
-      new Notification(judul, {
-        body: `${pesan}\n(${waktu})`,
-        icon: undefined
-      });
+      if (permission === "granted") {
+        try {
+          const swRegistration = await navigator.serviceWorker.ready;
+          await swRegistration.showNotification(judul, {
+            body: `${pesan}\nWaktu: ${waktu}`,
+            icon: "https://cdn-icons-png.flaticon.com/512/564/564619.png",
+            vibrate: [200, 100, 200, 100, 200],
+            requireInteraction: true
+          });
+        } catch (e) {
+          console.error('Gagal menampilkan notifikasi sistem:', e);
+        }
+      }
     }
+
+    // 2) Beri jeda sebentar supaya notifikasi sistem sempat terkirim
+    //    sebelum toast (blocking render) muncul di halaman.
+    setTimeout(() => {
+      const container = document.getElementById('toast-container');
+      const toast = document.createElement('div');
+      toast.className = 'toast';
+      toast.innerHTML = `
+        <div class="toast-title">
+          <span>⚠ ${statusMesin}</span>
+          <span class="toast-close" onclick="this.closest('.toast').remove()">✕</span>
+        </div>
+        <div>${pesan}</div>
+        <div class="toast-time">${waktu}</div>
+      `;
+      container.appendChild(toast);
+
+      setTimeout(() => {
+        toast.classList.add('hide');
+        setTimeout(() => toast.remove(), 250);
+      }, 8000);
+    }, 150);
   }
 
   // ─── FORMAT WAKTU ───
