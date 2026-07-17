@@ -764,10 +764,10 @@
 
   async function loadLogAwal() {
     try {
-      const res  = await fetch(`${SUPABASE_URL}/rest/v1/event_log?order=waktu.asc&limit=50`, { headers: HEADERS });
+      const res  = await fetch(`${SUPABASE_URL}/rest/v1/event_log?order=waktu.desc&limit=50`, { headers: HEADERS });
       const rows = await res.json();
       if (!rows || rows.length === 0) return;
-      rows.forEach(r => addLogLine(r));
+      rows.reverse().forEach(r => addLogLine(r));
     } catch(e) { console.error(e); }
   }
 
